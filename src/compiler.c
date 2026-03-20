@@ -8,8 +8,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 int main(int argc, char *argv[]) {
-  printf("Hello world\n");
-
   define_arg_ex("-o", T_REQUIRED, true, "Output binary", NAMESPACE_NONE,
                 "file");
   define_arg_ex("--help", T_OPTIONAL, false, "Display this help page",
@@ -40,8 +38,12 @@ int main(int argc, char *argv[]) {
     printf("Failed to open source file.\n");
     return EXIT_FAILURE;
   }
+  char *rust_file = NULL;
+  codegen(source_file, &rust_file);
 
-  codegen(source_file, outfile);
+  char cmd[256]; // todo: make the size of the cmd buffer bigger/heap allocated
+  snprintf(cmd, sizeof(cmd) - 1, "rustc %s -o %s", rust_file, outfile);
+  system(cmd);
 
   return EXIT_SUCCESS;
 }

@@ -1,15 +1,29 @@
+#define _GNU_SOURCE
 #include "codegen.h"
 #include <clang-c/CXSourceLocation.h>
 #include <clang-c/CXString.h>
 #include <clang-c/Index.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+typedef struct {
+  bool in_main;
+} CodegenState;
+
+static FILE *out_fp;
 
 static void emit(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  vprintf(fmt, args);
+  vfprintf(out_fp, fmt, args);
+  vfprintf(
+      stdout, fmt,
+      args); // write to stdout for debugging purposes, remove this in future
+
   va_end(args);
 }
 
@@ -24,6 +38,7 @@ char *rs_type(CXString c_type) {
 
 static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
                                      CXClientData data) {
+  CodegenState *state = (CodegenState *)data;
   (void)parent;
 
   CXSourceLocation loc = clang_getCursorLocation(cursor);
@@ -38,7 +53,12 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
     CXString name = clang_getCursorSpelling(cursor);
     char *ret_type =
         rs_type(clang_getTypeSpelling(clang_getCursorResultType(cursor)));
-    emit("fn %s() -> %s {\n", clang_getCString(name), ret_type);
+    if (strcmp(clang_getCString(name), "main") == 0) {
+      state->in_main = true;
+      emit("fn main() {\n");
+    } else {
+      emit("fn %s() -> %s {\n", clang_getCString(name), ret_type);
+    }
     clang_disposeString(name);
 
     clang_visitChildren(cursor, visit, data);
@@ -83,6 +103,9 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
     return CXChildVisit_Continue;
   }
   case CXCursor_ReturnStmt: {
+    if (state->in_main) {
+      return CXChildVisit_Continue;
+    }
     emit("return ");
     clang_visitChildren(cursor, visit, data);
     emit(";\n");
@@ -109,22 +132,40 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
   return CXChildVisit_Continue;
 }
 
-void codegen(const char *source_file, const char *output_file) {
-  (void)output_file;
+void codegen(const char *source_file, char **rust_file) {
+  char template[] = "/tmp/rcc_XXXXXX.rs";
+  int fd = mkstemps(template, 3);
+  if (fd < 0) {
+    perror("mkstemps");
+    return;
+  }
+
+  out_fp = fdopen(fd, "w");
+  if (!out_fp) {
+    perror("fdopen");
+    close(fd);
+    return;
+  }
+
+  *rust_file = strdup(template);
 
   CXIndex index = clang_createIndex(0, 0);
   CXTranslationUnit tu = clang_parseTranslationUnit(
       index, source_file, NULL, 0, NULL, 0, CXTranslationUnit_None);
 
   if (!tu) {
-    printf("Failed to parse '%s'\n", source_file);
+    fprintf(stderr, "Failed to parse '%s'\n", source_file);
+    fclose(out_fp);
     clang_disposeIndex(index);
     return;
   }
 
   CXCursor root = clang_getTranslationUnitCursor(tu);
-  clang_visitChildren(root, visit, NULL);
 
+  CodegenState state = {false};
+  clang_visitChildren(root, visit, &state);
+
+  fclose(out_fp);
   clang_disposeTranslationUnit(tu);
   clang_disposeIndex(index);
 }

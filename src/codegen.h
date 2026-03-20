@@ -1,3 +1,3 @@
 #pragma once
 
-void codegen(const char *source_file, const char *output_file);
+void codegen(const char *source_file, char **rust_file);
