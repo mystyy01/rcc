@@ -1,0 +1,14 @@
+C is unsafe.
+
+<clip of program segfaulting with angry reaction>
+<pc crashing from unsafe C code>
+<some other frustrated c nonsense>
+
+So i fixed it.
+
+If you didn't know, rust devs pride them selves on safe code with their fancy borrow checker and memory management. I have never written a line of rust code. But the idea sounds alright so i thought - lets write C and turn it into rust.
+
+Welcome to RCC - Rust C Compiler.
+
+<live reaction of first compilation with rcc with excited voice>
+<fade to black>

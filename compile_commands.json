@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "/mnt/ssd/Coding/rcc",
+    "command": "gcc -Wall -Wextra -Werror -std=c11 -I/usr/include -Isrc/common -c src/compiler.c -o build/compiler.o",
+    "file": "src/compiler.c"
+  }
+]
