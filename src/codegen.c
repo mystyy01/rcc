@@ -98,10 +98,6 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
     CXString name = clang_getCursorSpelling(cursor);
     char *ret_type =
         rs_type(clang_getTypeSpelling(clang_getCursorResultType(cursor)));
-    if (ret_type == NULL) {
-      printf("Not implemented yet.");
-      exit(EXIT_FAILURE);
-    }
     char func_args[1024] = "";
     int num_args = clang_Cursor_getNumArguments(cursor);
     for (int i = 0; i < num_args; i++) {
@@ -175,6 +171,38 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
     emit(";\n");
     return CXChildVisit_Continue;
   }
+  case CXCursor_DeclStmt: {
+    clang_visitChildren(cursor, visit, data);
+    return CXChildVisit_Continue;
+  }
+  case CXCursor_VarDecl: {
+    bool has_const =
+        clang_isConstQualifiedType(clang_getCursorType(cursor)) != 0;
+    CXString var_name = clang_getCursorSpelling(cursor);
+    const char *name_str = clang_getCString(var_name);
+    CXType var_type = clang_getCursorType(cursor);
+    CXType var_type_unq = clang_getUnqualifiedType(var_type);
+    CXString var_type_cx = clang_getTypeSpelling(var_type_unq);
+
+    emit("%s %s: %s", has_const ? "let" : "let mut", name_str,
+         rs_type(var_type_cx));
+
+    ChildCollector col = {.count = 0};
+    clang_visitChildren(cursor, collect_children, &col);
+
+    if (col.count > 0) {
+      // theres an initalized value
+      emit(" = ");
+      CXCursor val = col.children[0];
+      visit(val, cursor, data);
+    }
+
+    emit(";\n");
+
+    clang_disposeString(var_name);
+    return CXChildVisit_Continue;
+    break;
+  }
   case CXCursor_IntegerLiteral: {
     CXSourceRange range = clang_getCursorExtent(cursor);
     CXToken *tokens = NULL;
@@ -218,6 +246,23 @@ static enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent,
     } else {
       emit("}\n");
     }
+    break;
+  }
+  case CXCursor_WhileStmt: {
+    emit("while ");
+    ChildCollector col = {.count = 0};
+    clang_visitChildren(cursor, collect_children, &col);
+
+    CXCursor cond = col.children[0];
+    visit(cond, cursor, data);
+
+    emit("{\n");
+
+    CXCursor body = col.children[1];
+    visit(body, cursor, data);
+    emit("}\n");
+
+    return CXChildVisit_Continue;
     break;
   }
   case CXCursor_UnaryOperator: {

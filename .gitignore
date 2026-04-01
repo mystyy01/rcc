@@ -1,3 +1,10 @@
+build/
+rcc
+
+compile_commands.json
+
+main
+out
+
 video/
 videos/
-build/*
