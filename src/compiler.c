@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   char *rust_file = NULL;
   codegen(source_file, &rust_file);
 
-  char cmd[256]; // todo: make the size of the cmd buffer bigger/heap allocated
+  char cmd[4096]; // todo: make the size of the cmd buffer bigger/heap allocated
   snprintf(cmd, sizeof(cmd) - 1, "rustc %s -o %s", rust_file, outfile);
   system(cmd);
 

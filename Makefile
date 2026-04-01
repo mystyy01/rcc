@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -I/usr/include -Isrc/common
+CFLAGS = -std=c11 -I/usr/include -Isrc/common
 LDFLAGS = -lclang
 
 SRC = $(wildcard src/*.c) $(wildcard src/common/*.c)
